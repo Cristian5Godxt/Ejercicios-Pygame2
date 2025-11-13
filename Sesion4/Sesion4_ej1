@@ -1,0 +1,60 @@
+
+import sys
+try:
+    import pygame
+except Exception as e:
+    print("Error: pygame no está instalado o no se pudo importar:", e)
+    sys.exit(1)
+
+
+def main():
+    pygame.init()
+    WIDTH, HEIGHT = 800, 600
+    RADIUS = 25
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Rebote con velocidad variable")
+
+    x = WIDTH // 2
+    y = HEIGHT // 2
+    velocidad_x = 10.0
+
+    clock = pygame.time.Clock()
+    running = True
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        x += velocidad_x
+
+        if x - RADIUS <= 0:
+            velocidad_x = -velocidad_x
+            if velocidad_x > 0:
+                velocidad_x += 1.0
+            else:
+                velocidad_x -= 0.1
+            x = RADIUS
+
+        elif x + RADIUS >= WIDTH:
+            velocidad_x = -velocidad_x
+            if velocidad_x > 0:
+                velocidad_x += 0.1
+            else:
+                velocidad_x -= 0.1
+            x = WIDTH - RADIUS
+
+        screen.fill((30, 30, 30))
+        pygame.draw.circle(screen, (70, 170, 255), (int(x), int(y)), RADIUS)
+
+        pygame.display.set_caption(f"Rebote - velocidad_x = {velocidad_x:.2f} px/frame")
+
+        pygame.display.flip()
+
+        clock.tick(60)
+
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    main()

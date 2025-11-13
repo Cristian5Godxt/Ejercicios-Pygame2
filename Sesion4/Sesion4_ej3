@@ -1,0 +1,48 @@
+
+import sys
+try:
+    import pygame
+except Exception as e:
+    print("Error: pygame no está instalado o no se pudo importar:", e)
+    sys.exit(1)
+
+def main():
+    pygame.init()
+    WIDTH, HEIGHT = 800, 600
+    RADIUS = 25
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+
+    x = WIDTH // 2
+    y = RADIUS
+    vy = 0.0
+
+    gravedad = 0.5
+    coef_rebote = 0.8  # conserva el 80% de la velocidad después del rebote
+
+    clock = pygame.time.Clock()
+    running = True
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        vy += gravedad
+        y += vy
+
+        if y + RADIUS >= HEIGHT:
+            y = HEIGHT - RADIUS
+            vy = -vy * coef_rebote
+
+        screen.fill((20, 20, 20))
+        pygame.draw.circle(screen, (255, 180, 80), (int(x), int(y)), RADIUS)
+
+        pygame.display.set_caption(f"Gravedad - vy={vy:.2f} px/frame")
+        pygame.display.flip()
+
+        clock.tick(60)
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,55 @@
+
+import sys
+try:
+    import pygame
+except Exception as e:
+    print("Error: pygame no está instalado o no se pudo importar:", e)
+    sys.exit(1)
+
+
+def main():
+    pygame.init()
+    WIDTH, HEIGHT = 640, 480
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+
+    x = WIDTH // 2
+    y = HEIGHT // 2
+
+    radius = 20.0
+    min_r = 20.0
+    max_r = 50.0
+    dr = 0.5
+    growing = True
+
+    clock = pygame.time.Clock()
+    running = True
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        if growing:
+            radius += dr
+            if radius >= max_r:
+                radius = max_r
+                growing = False
+        else:
+            radius -= dr
+            if radius <= min_r:
+                radius = min_r
+                growing = True
+
+        screen.fill((30, 30, 30))
+        pygame.draw.circle(screen, (255, 100, 100), (x, y), int(radius))
+
+        pygame.display.set_caption(f"Pulsación - radio = {radius:.1f} px")
+        pygame.display.flip()
+
+        clock.tick(60)
+
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    main()
