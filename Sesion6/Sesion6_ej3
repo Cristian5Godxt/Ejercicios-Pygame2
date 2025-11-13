@@ -1,0 +1,133 @@
+
+import sys
+import random
+import math
+try:
+    import pygame
+except Exception as e:
+    print('Error: pygame no está instalado o no se pudo importar:', e)
+    sys.exit(1)
+
+
+def circle_rect_collision(cx, cy, r, rect):
+    # Encuentra el punto más cercano en el rectángulo al centro del círculo
+    closest_x = max(rect.left, min(cx, rect.right))
+    closest_y = max(rect.top, min(cy, rect.bottom))
+    dx = cx - closest_x
+    dy = cy - closest_y
+    return dx * dx + dy * dy <= r * r
+
+
+def make_obstacles(count, width, height, min_r=12, max_r=30):
+    obs = []
+    for _ in range(count):
+        r = random.randint(min_r, max_r)
+        x = random.randint(r, width - r)
+        y = random.randint(r, height - r)
+        # velocidad horizontal aleatoria y dirección
+        vx = random.choice([-1, 1]) * random.uniform(1.0, 3.0)
+        vy = random.choice([-1, 1]) * random.uniform(0.0, 1.5)
+        obs.append({'x': x, 'y': y, 'r': r, 'vx': vx, 'vy': vy})
+    return obs
+
+
+def main():
+    pygame.init()
+    WIDTH, HEIGHT = 800, 600
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+
+    player_w, player_h = 48, 48
+    start_x, start_y = 50, HEIGHT // 2 - player_h // 2
+
+    def reset():
+        player = {'x': float(start_x), 'y': float(start_y), 'w': player_w, 'h': player_h}
+        obstacles = make_obstacles(6, WIDTH, HEIGHT)
+        return player, obstacles
+
+    player, obstacles = reset()
+
+    speed = 5
+    game_over = False
+    game_over_time = 0
+
+    font = pygame.font.SysFont(None, 28)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r and game_over:
+                    player, obstacles = reset()
+                    game_over = False
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    return
+
+        keys = pygame.key.get_pressed()
+        if not game_over:
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                player['x'] -= speed
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                player['x'] += speed
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                player['y'] -= speed
+            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                player['y'] += speed
+
+            # limitar dentro de la pantalla
+            player['x'] = max(0, min(WIDTH - player['w'], player['x']))
+            player['y'] = max(0, min(HEIGHT - player['h'], player['y']))
+
+            # mover obstáculos
+            for o in obstacles:
+                o['x'] += o['vx']
+                o['y'] += o['vy']
+                # rebotar en bordes
+                if o['x'] - o['r'] <= 0:
+                    o['x'] = o['r']
+                    o['vx'] = -o['vx']
+                if o['x'] + o['r'] >= WIDTH:
+                    o['x'] = WIDTH - o['r']
+                    o['vx'] = -o['vx']
+                if o['y'] - o['r'] <= 0:
+                    o['y'] = o['r']
+                    o['vy'] = -o['vy']
+                if o['y'] + o['r'] >= HEIGHT:
+                    o['y'] = HEIGHT - o['r']
+                    o['vy'] = -o['vy']
+
+            # detectar colisiones
+            player_rect = pygame.Rect(int(player['x']), int(player['y']), player['w'], player['h'])
+            for o in obstacles:
+                if circle_rect_collision(o['x'], o['y'], o['r'], player_rect):
+                    game_over = True
+                    game_over_time = pygame.time.get_ticks()
+                    break
+
+        # dibujado
+        screen.fill((18, 18, 24))
+        # dibujar obstáculos
+        for o in obstacles:
+            pygame.draw.circle(screen, (200, 80, 80), (int(o['x']), int(o['y'])), o['r'])
+
+        # dibujar jugador
+        color = (70, 200, 120) if not game_over else (180, 50, 50)
+        pygame.draw.rect(screen, color, (int(player['x']), int(player['y']), player['w'], player['h']))
+
+        if game_over:
+            t = font.render('Game Over - Presiona R para reiniciar', True, (240, 240, 240))
+            screen.blit(t, (WIDTH // 2 - t.get_width() // 2, HEIGHT // 2 - t.get_height() // 2))
+            # reinicio automático después de 2 segundos
+            if pygame.time.get_ticks() - game_over_time > 2000:
+                player, obstacles = reset()
+                game_over = False
+
+        pygame.display.flip()
+        clock.tick(60)
+
+
+if __name__ == '__main__':
+    main()

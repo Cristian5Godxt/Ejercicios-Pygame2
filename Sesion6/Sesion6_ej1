@@ -1,0 +1,74 @@
+
+import sys
+try:
+    import pygame
+except Exception as e:
+    print('Error: pygame no está instalado o no se pudo importar:', e)
+    sys.exit(1)
+
+
+def main():
+    pygame.init()
+    WIDTH, HEIGHT = 640, 480
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+
+    player_w, player_h = 48, 48
+    player_x, player_y = 50, HEIGHT // 2 - player_h // 2
+    speed = 4
+
+    target_w, target_h = 60, 60
+    target_x, target_y = WIDTH - 120, HEIGHT // 2 - target_h // 2
+
+    default_color = (70, 130, 180)  # azul por defecto
+    collide_color = (80, 200, 120)  # verde al colisionar
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            player_x -= speed
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            player_x += speed
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            player_y -= speed
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            player_y += speed
+
+        # Limitar dentro de la pantalla
+        player_x = max(0, min(WIDTH - player_w, player_x))
+        player_y = max(0, min(HEIGHT - player_h, player_y))
+
+        player_rect = pygame.Rect(int(player_x), int(player_y), player_w, player_h)
+        target_rect = pygame.Rect(target_x, target_y, target_w, target_h)
+
+        # Detectar colisión
+        if player_rect.colliderect(target_rect):
+            player_color = collide_color
+        else:
+            player_color = default_color
+
+        screen.fill((20, 20, 20))
+        # Dibujar objetivo
+        pygame.draw.rect(screen, (200, 80, 80), target_rect)
+        # Dibujar jugador
+        pygame.draw.rect(screen, player_color, player_rect)
+
+        # Texto
+        font = pygame.font.SysFont(None, 24)
+        info = 'Colisionando!' if player_color == collide_color else 'Sin colisión'
+        text = font.render(info, True, (230, 230, 230))
+        screen.blit(text, (10, 10))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    pygame.quit()
+
+
+if __name__ == '__main__':
+    main()

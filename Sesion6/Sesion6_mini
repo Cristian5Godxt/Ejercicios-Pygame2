@@ -1,0 +1,282 @@
+
+import sys
+import os
+import random
+import math
+try:
+    import pygame
+except Exception as e:
+    print('Error: pygame no está instalado:', e)
+    sys.exit(1)
+
+
+def make_ship(size=(64, 64)):
+    surf = pygame.Surface(size, pygame.SRCALPHA)
+    surf.fill((0, 0, 0, 0))
+    w, h = size
+    
+    # Cuerpo principal: triángulo grande con gradiente simulado
+    points_body = [(w * 0.5, h * 0.05), (w * 0.92, h * 0.95), (w * 0.08, h * 0.95)]
+    pygame.draw.polygon(surf, (80, 180, 255), points_body)
+    pygame.draw.polygon(surf, (100, 200, 255), [(w * 0.5, h * 0.08), (w * 0.88, h * 0.90), (w * 0.12, h * 0.90)])
+    
+    # Borde lateral izquierdo (sombra)
+    pygame.draw.line(surf, (50, 120, 200), (w * 0.08, h * 0.95), (w * 0.5, h * 0.05), 2)
+    
+    # Borde lateral derecho (highlight)
+    pygame.draw.line(surf, (150, 220, 255), (w * 0.92, h * 0.95), (w * 0.5, h * 0.05), 2)
+    
+    # Estabilizadores laterales (aletas)
+    pygame.draw.polygon(surf, (70, 160, 230), [(w * 0.15, h * 0.65), (w * 0.05, h * 0.75), (w * 0.15, h * 0.85)])
+    pygame.draw.polygon(surf, (70, 160, 230), [(w * 0.85, h * 0.65), (w * 0.95, h * 0.75), (w * 0.85, h * 0.85)])
+    
+    # Ventana/cockpit: círculo grande
+    pygame.draw.circle(surf, (30, 100, 180), (int(w * 0.5), int(h * 0.30)), int(w * 0.15))
+    pygame.draw.circle(surf, (60, 150, 220), (int(w * 0.5), int(h * 0.30)), int(w * 0.13))
+    pygame.draw.circle(surf, (100, 180, 255), (int(w * 0.5), int(h * 0.28)), int(w * 0.10))
+    # Reflejo en la ventana
+    pygame.draw.circle(surf, (180, 220, 255), (int(w * 0.43), int(h * 0.22)), int(w * 0.04))
+    
+    # Panel de control en el cuerpo
+    pygame.draw.rect(surf, (40, 120, 200), (int(w * 0.40), int(h * 0.50), int(w * 0.20), int(h * 0.08)))
+    pygame.draw.line(surf, (100, 150, 220), (int(w * 0.43), int(h * 0.52)), (int(w * 0.57), int(h * 0.52)), 1)
+    pygame.draw.line(surf, (100, 150, 220), (int(w * 0.43), int(h * 0.56)), (int(w * 0.57), int(h * 0.56)), 1)
+    
+    # Motor principal: múltiples capas
+    # Entrada del motor
+    pygame.draw.polygon(surf, (255, 140, 60), [(w * 0.35, h * 0.70), (w * 0.65, h * 0.70), (w * 0.65, h * 0.78), (w * 0.35, h * 0.78)])
+    # Núcleo del motor
+    pygame.draw.polygon(surf, (255, 180, 80), [(w * 0.38, h * 0.72), (w * 0.62, h * 0.72), (w * 0.62, h * 0.76), (w * 0.38, h * 0.76)])
+    # Llama del motor
+    pygame.draw.polygon(surf, (255, 200, 100), [(w * 0.40, h * 0.78), (w * 0.60, h * 0.78), (w * 0.52, h * 0.95)])
+    pygame.draw.polygon(surf, (255, 150, 50), [(w * 0.43, h * 0.82), (w * 0.57, h * 0.82), (w * 0.50, h * 0.92)])
+    
+    # Propulsores laterales pequeños
+    pygame.draw.circle(surf, (200, 120, 50), (int(w * 0.25), int(h * 0.85)), int(w * 0.05))
+    pygame.draw.circle(surf, (200, 120, 50), (int(w * 0.75), int(h * 0.85)), int(w * 0.05))
+    pygame.draw.circle(surf, (220, 140, 70), (int(w * 0.25), int(h * 0.85)), int(w * 0.03))
+    pygame.draw.circle(surf, (220, 140, 70), (int(w * 0.75), int(h * 0.85)), int(w * 0.03))
+    
+    return surf
+
+
+def circle_rect_collision(cx, cy, r, rect):
+    closest_x = max(rect.left, min(cx, rect.right))
+    closest_y = max(rect.top, min(cy, rect.bottom))
+    dx = cx - closest_x
+    dy = cy - closest_y
+    return dx * dx + dy * dy <= r * r
+
+
+def spawn_collectible(width, height, obstacles, margin=50):
+    for attempt in range(100):
+        x = random.randint(margin, width - margin)
+        y = random.randint(margin, height - margin)
+        # Verificar que no esté dentro de un obstáculo
+        ok = True
+        for o in obstacles:
+            if math.hypot(x - o['x'], y - o['y']) < o['r'] + 20:
+                ok = False
+                break
+        if ok:
+            return {'x': x, 'y': y, 'r': 10}
+    return {'x': width // 2, 'y': height // 2, 'r': 10}
+
+
+def make_obstacles(count, width, height):
+    obs = []
+    for _ in range(count):
+        r = random.randint(15, 30)
+        x = random.randint(r, width - r)
+        y = random.randint(r, height - r)
+        vx = random.uniform(-2, 2)
+        vy = random.uniform(-2, 2)
+        obs.append({'x': float(x), 'y': float(y), 'r': r, 'vx': vx, 'vy': vy})
+    return obs
+
+
+def main():
+    pygame.init()
+    WIDTH, HEIGHT = 1000, 700
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption('Juego: Recolectar y Evitar')
+    clock = pygame.time.Clock()
+    font_small = pygame.font.SysFont('arial', 24)
+    font_big = pygame.font.SysFont('arial', 60)
+
+    # Nave
+    ship_orig = make_ship((80, 80))
+    x, y = WIDTH // 2, HEIGHT // 2
+    angle = 0.0
+    speed = 0.0
+    max_speed = 5.5
+    accel = 0.4
+    friction = 0.05
+
+    # Joystick
+    joystick = None
+    if pygame.joystick.get_count() > 0:
+        joystick = pygame.joystick.Joystick(0)
+        joystick.init()
+
+    # Collectibles y obstáculos
+    obstacles = make_obstacles(7, WIDTH, HEIGHT)
+    collectible = spawn_collectible(WIDTH, HEIGHT, obstacles)
+    score = 0
+    game_over = False
+    start_time = pygame.time.get_ticks()
+
+    running = True
+    while running:
+        dt = clock.tick(60) / 1000.0
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                if event.key == pygame.K_r and game_over:
+                    x, y = WIDTH // 2, HEIGHT // 2
+                    angle = 0.0
+                    speed = 0.0
+                    score = 0
+                    obstacles = make_obstacles(7, WIDTH, HEIGHT)
+                    collectible = spawn_collectible(WIDTH, HEIGHT, obstacles)
+                    game_over = False
+                    start_time = pygame.time.get_ticks()
+
+        if not game_over:
+            keys = pygame.key.get_pressed()
+            accelerate = keys[pygame.K_w] or keys[pygame.K_UP] or keys[pygame.K_SPACE]
+            strafe_left = keys[pygame.K_a]
+            strafe_right = keys[pygame.K_d]
+            rotate_left = keys[pygame.K_LEFT]
+            rotate_right = keys[pygame.K_RIGHT]
+
+            # Orientación: ratón o joystick
+            mx, my = pygame.mouse.get_pos()
+            use_joy = False
+            if joystick:
+                try:
+                    jx = joystick.get_axis(0)
+                    jy = joystick.get_axis(1)
+                    if math.hypot(jx, jy) > 0.3:
+                        angle = math.degrees(math.atan2(-jy, jx))
+                        use_joy = True
+                except Exception:
+                    pass
+
+            if not use_joy:
+                angle = math.degrees(math.atan2(-(my - y), mx - x))
+
+            # Rotación manual
+            if rotate_left:
+                angle -= 4
+            if rotate_right:
+                angle += 4
+
+            # Aceleración
+            if accelerate:
+                speed = min(max_speed, speed + accel)
+            else:
+                speed *= (1 - friction)
+
+            # Strafe perpendicular
+            strafe_mag = 3.0
+            if strafe_left:
+                perp = angle + 90
+                rad = math.radians(perp)
+                x += math.cos(rad) * strafe_mag
+                y -= math.sin(rad) * strafe_mag
+            if strafe_right:
+                perp = angle - 90
+                rad = math.radians(perp)
+                x += math.cos(rad) * strafe_mag
+                y -= math.sin(rad) * strafe_mag
+
+            # Movimiento adelante
+            rad = math.radians(angle)
+            x += math.cos(rad) * speed
+            y -= math.sin(rad) * speed
+
+            # Límites pantalla con rebote suave
+            margin = 40
+            if x < margin:
+                x = margin
+                speed *= -0.3
+            if x > WIDTH - margin:
+                x = WIDTH - margin
+                speed *= -0.3
+            if y < margin:
+                y = margin
+                speed *= -0.3
+            if y > HEIGHT - margin:
+                y = HEIGHT - margin
+                speed *= -0.3
+
+            # Mover obstáculos
+            for o in obstacles:
+                o['x'] += o['vx']
+                o['y'] += o['vy']
+                # Rebote en bordes
+                if o['x'] - o['r'] <= 0 or o['x'] + o['r'] >= WIDTH:
+                    o['vx'] *= -1
+                    o['x'] = max(o['r'], min(WIDTH - o['r'], o['x']))
+                if o['y'] - o['r'] <= 0 or o['y'] + o['r'] >= HEIGHT:
+                    o['vy'] *= -1
+                    o['y'] = max(o['r'], min(HEIGHT - o['r'], o['y']))
+
+            # Colisión con collectible
+            player_rect = pygame.Rect(x - 30, y - 30, 60, 60)
+            if circle_rect_collision(collectible['x'], collectible['y'], collectible['r'], player_rect):
+                score += 1
+                print(f'[+] Puntos: {score}')
+                collectible = spawn_collectible(WIDTH, HEIGHT, obstacles)
+
+            # Colisión con obstáculos
+            for o in obstacles:
+                if circle_rect_collision(o['x'], o['y'], o['r'], player_rect):
+                    game_over = True
+                    break
+
+        # Dibujar
+        screen.fill((15, 20, 40))
+
+        # Collectible
+        pygame.draw.circle(screen, (255, 240, 100), (int(collectible['x']), int(collectible['y'])), collectible['r'])
+        pygame.draw.circle(screen, (255, 200, 50), (int(collectible['x']), int(collectible['y'])), collectible['r'] - 3)
+
+        # Obstáculos
+        for o in obstacles:
+            pygame.draw.circle(screen, (220, 80, 80), (int(o['x']), int(o['y'])), o['r'])
+            pygame.draw.circle(screen, (180, 60, 60), (int(o['x']), int(o['y'])), o['r'] - 3)
+
+        # Nave
+        rotated = pygame.transform.rotozoom(ship_orig, -angle, 1.0)
+        rect = rotated.get_rect(center=(int(x), int(y)))
+        screen.blit(rotated, rect)
+
+        # HUD
+        score_txt = font_small.render(f'Puntos: {score}', True, (100, 255, 200))
+        screen.blit(score_txt, (15, 15))
+        
+        if not game_over:
+            time_txt = font_small.render(f'Tiempo: {(pygame.time.get_ticks() - start_time) // 1000}s', True, (150, 200, 255))
+            screen.blit(time_txt, (15, 50))
+        
+        if game_over:
+            go_txt = font_big.render('GAME OVER', True, (255, 100, 100))
+            screen.blit(go_txt, (WIDTH // 2 - go_txt.get_width() // 2, HEIGHT // 2 - 80))
+            final_score = font_small.render(f'Puntuación final: {score}', True, (255, 200, 200))
+            screen.blit(final_score, (WIDTH // 2 - final_score.get_width() // 2, HEIGHT // 2))
+            restart = font_small.render('Presiona R para reiniciar', True, (200, 200, 255))
+            screen.blit(restart, (WIDTH // 2 - restart.get_width() // 2, HEIGHT // 2 + 60))
+
+        pygame.display.flip()
+
+    pygame.quit()
+
+
+if __name__ == '__main__':
+    main()

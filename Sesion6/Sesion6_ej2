@@ -1,0 +1,79 @@
+
+import sys
+import random
+try:
+    import pygame
+except Exception as e:
+    print('Error: pygame no está instalado o no se pudo importar:', e)
+    sys.exit(1)
+
+
+def spawn_circle(radius, width, height, margin=10):
+    x = random.randint(margin + radius, width - margin - radius)
+    y = random.randint(margin + radius, height - margin - radius)
+    return x, y
+
+
+def main():
+    pygame.init()
+    WIDTH, HEIGHT = 640, 480
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+
+    player_w, player_h = 40, 40
+    player_x, player_y = WIDTH // 2 - player_w // 2, HEIGHT // 2 - player_h // 2
+    speed = 4
+
+    circle_radius = 16
+    circle_x, circle_y = spawn_circle(circle_radius, WIDTH, HEIGHT)
+
+    collected = 0
+
+    font = pygame.font.SysFont(None, 28)
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            player_x -= speed
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            player_x += speed
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            player_y -= speed
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            player_y += speed
+
+        player_x = max(0, min(WIDTH - player_w, player_x))
+        player_y = max(0, min(HEIGHT - player_h, player_y))
+
+        player_rect = pygame.Rect(int(player_x), int(player_y), player_w, player_h)
+
+        # detección de recolección: si el centro del círculo está dentro del rectángulo
+        if player_rect.collidepoint(circle_x, circle_y):
+            collected += 1
+            circle_x, circle_y = spawn_circle(circle_radius, WIDTH, HEIGHT)
+
+        screen.fill((25, 25, 25))
+
+        # dibujar círculo objetivo
+        pygame.draw.circle(screen, (220, 180, 60), (circle_x, circle_y), circle_radius)
+
+        # dibujar jugador
+        pygame.draw.rect(screen, (80, 160, 220), player_rect)
+
+        # contador
+        text = font.render(f'Recolectados: {collected}', True, (240, 240, 240))
+        screen.blit(text, (10, 10))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    pygame.quit()
+
+
+if __name__ == '__main__':
+    main()
