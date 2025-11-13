@@ -1,4 +1,8 @@
 # Ejercicios-Pygame2
+
+MATERIA: GRAFICACIÓN 2-3PM
+ALUMNO: CRISTIAN MIGUEL MARINES CABALLERO
+
 sesion4_ej1.py – Rebote con velocidad variable
 
 Simula un círculo que rebota dentro de la ventana.
