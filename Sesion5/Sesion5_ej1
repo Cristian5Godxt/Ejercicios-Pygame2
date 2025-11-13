@@ -1,0 +1,73 @@
+
+import sys
+try:
+    import pygame
+except Exception as e:
+    print("Error: pygame no está instalado o no se pudo importar:", e)
+    sys.exit(1)
+
+
+def main():
+    pygame.init()
+    WIDTH, HEIGHT = 800, 600
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+
+    # Intentar cargar una imagen llamada 'image.png' en el mismo directorio.
+    # Si no existe, se crea una superficie de prueba (círculo sobre fondo transparente).
+    try:
+        original = pygame.image.load('image.png').convert_alpha()
+    except Exception:
+        original = pygame.Surface((200, 150), pygame.SRCALPHA)
+        original.fill((0, 0, 0, 0))
+        pygame.draw.ellipse(original, (200, 100, 100), original.get_rect())
+
+    orig_w, orig_h = original.get_size()
+
+    scale = 1.0
+    scale_step = 0.1
+    min_scale = 0.1
+    max_scale = 4.0
+
+    font = pygame.font.SysFont(None, 24)
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                # Teclas para aumentar/disminuir: '+', '=' (sin shift), numpad plus, '-' y numpad minus
+                if event.key in (pygame.K_PLUS, pygame.K_KP_PLUS, pygame.K_EQUALS):
+                    scale = min(max_scale, scale + scale_step)
+                elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+                    scale = max(min_scale, scale - scale_step)
+                elif event.key == pygame.K_ESCAPE:
+                    running = False
+
+        # Calcular nuevo tamaño manteniendo proporciones
+        new_w = max(1, int(orig_w * scale))
+        new_h = max(1, int(orig_h * scale))
+
+        # Redimensionar de forma suave
+        image = pygame.transform.smoothscale(original, (new_w, new_h))
+
+        screen.fill((30, 30, 30))
+
+        # Dibujar la imagen centrada
+        img_rect = image.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        screen.blit(image, img_rect)
+
+        # Mostrar instrucciones y escala
+        info = f"Tamaño: {new_w}x{new_h}  (Escala: {scale:.2f})  - '+' o '=' aumentar, '-' disminuir, ESC salir"
+        text = font.render(info, True, (230, 230, 230))
+        screen.blit(text, (10, HEIGHT - 30))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    pygame.quit()
+
+
+if __name__ == '__main__':
+    main()

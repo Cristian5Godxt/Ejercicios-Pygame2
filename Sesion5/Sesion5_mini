@@ -1,0 +1,141 @@
+
+import sys
+import os
+import math
+try:
+    import pygame
+except Exception as e:
+    print("Error: pygame no está instalado o no se pudo importar:", e)
+    sys.exit(1)
+
+
+def make_fallback_ship(size=(64, 64)):
+    surf = pygame.Surface(size, pygame.SRCALPHA)
+    surf.fill((0, 0, 0, 0))
+    w, h = size
+    # Triángulo principal
+    points = [(w * 0.5, h * 0.05), (w * 0.95, h * 0.9), (w * 0.05, h * 0.9)]
+    pygame.draw.polygon(surf, (200, 200, 220), points)
+    # Ventana
+    pygame.draw.circle(surf, (60, 140, 200), (int(w * 0.5), int(h * 0.35)), int(w * 0.09))
+    # Detalles
+    pygame.draw.polygon(surf, (180, 50, 50), [(w * 0.5, h * 0.15), (w * 0.7, h * 0.75), (w * 0.3, h * 0.75)])
+    return surf
+
+
+def angle_to_target(src_pos, target_pos):
+    dx = target_pos[0] - src_pos[0]
+    dy = target_pos[1] - src_pos[1]
+    # atan2: y first, note pygame y axis goes down -> invert dy to get conventional angle if desired
+    return math.degrees(math.atan2(-dy, dx))
+
+
+def main():
+    pygame.init()
+    WIDTH, HEIGHT = 800, 600
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+
+    # Intentar cargar una imagen 'ship.png' en el mismo directorio; si no existe, crear fallback
+    ship_path = 'ship.png'
+    if os.path.exists(ship_path):
+        ship_orig = pygame.image.load(ship_path).convert_alpha()
+    else:
+        ship_orig = make_fallback_ship((128, 128))
+
+    # Escalar la imagen a tamaño adecuado
+    desired_size = (64, 64)
+    ship_orig = pygame.transform.smoothscale(ship_orig, desired_size)
+
+    # Estado de la nave
+    x, y = WIDTH // 2, HEIGHT // 2
+    angle = 0.0  # en grados, 0 apunta a la derecha
+    speed = 0.0
+    max_speed = 6.0
+    accel = 0.4
+
+    # Joystick init
+    joystick = None
+    if pygame.joystick.get_count() > 0:
+        joystick = pygame.joystick.Joystick(0)
+        joystick.init()
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                running = False
+
+        # obtener entrada del ratón
+        mx, my = pygame.mouse.get_pos()
+
+        # Si hay joystick y su stick tiene magnitud suficiente, usarlo para orientar
+        use_joystick = False
+        joy_dx = joy_dy = 0.0
+        if joystick:
+            # Intentamos leer ejes 0 (x) y 1 (y) del stick izquierdo
+            try:
+                joy_dx = joystick.get_axis(0)
+                joy_dy = joystick.get_axis(1)
+                mag = math.hypot(joy_dx, joy_dy)
+                if mag > 0.25:
+                    use_joystick = True
+            except Exception:
+                use_joystick = False
+
+        if use_joystick:
+            # convertir eje joystick a ángulo: axis x,y -> atan2(-y, x)
+            angle = math.degrees(math.atan2(-joy_dy, joy_dx))
+        else:
+            angle = angle_to_target((x, y), (mx, my))
+
+        # Movimiento: avanzar con tecla W o flecha arriba, o con botón 0 del joystick
+        keys = pygame.key.get_pressed()
+        move_forward = keys[pygame.K_w] or keys[pygame.K_UP] or keys[pygame.K_SPACE]
+        if joystick:
+            try:
+                # botón 0 o 1 como avance
+                move_forward = move_forward or joystick.get_button(0) or joystick.get_button(1)
+            except Exception:
+                pass
+
+        if move_forward:
+            speed = min(max_speed, speed + accel)
+        else:
+            # fricción ligera
+            speed = max(0.0, speed - accel * 0.5)
+
+        # actualizar posición según ángulo
+        rad = math.radians(angle)
+        vx = math.cos(rad) * speed
+        vy = -math.sin(rad) * speed
+        x += vx
+        y += vy
+
+        # límites simples
+        x = max(0, min(WIDTH, x))
+        y = max(0, min(HEIGHT, y))
+
+        # rotar imagen (pygame rota en sentido antihorario con ángulos positivos)
+        rotated = pygame.transform.rotozoom(ship_orig, -angle, 1.0)
+        rect = rotated.get_rect(center=(int(x), int(y)))
+
+        screen.fill((18, 18, 30))
+        screen.blit(rotated, rect)
+
+        # HUD simple
+        info = f"Angle: {angle:.1f}°  Speed: {speed:.2f}  Use W/UP/SPACE or joystick button to move"
+        font = pygame.font.SysFont(None, 22)
+        text = font.render(info, True, (220, 220, 220))
+        screen.blit(text, (10, 10))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    pygame.quit()
+
+
+if __name__ == '__main__':
+    main()

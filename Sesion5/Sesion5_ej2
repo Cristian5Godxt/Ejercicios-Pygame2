@@ -1,0 +1,154 @@
+
+import sys
+import os
+try:
+    import pygame
+except Exception as e:
+    print("Error: pygame no está instalado o no se pudo importar:", e)
+    sys.exit(1)
+
+
+def create_spritesheet_if_missing(path, frame_w=64, frame_h=96, frames=4):
+    if os.path.exists(path):
+        return
+
+    sheet_w = frame_w * frames
+    sheet = pygame.Surface((sheet_w, frame_h), pygame.SRCALPHA)
+    sheet.fill((0, 0, 0, 0))
+
+    for i in range(frames):
+        fx = i * frame_w
+        surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
+        surf.fill((0, 0, 0, 0))
+
+        # parámetros por frame para simular paso
+        leg_offset = [(-12, 12), (-6, 6), (6, -6), (12, -12)][i % 4]
+        arm_offset = [(-10, 10), (-4, 4), (4, -4), (10, -10)][i % 4]
+        head_tilt = [-4, -2, 2, 4][i % 4]
+
+        # sombra bajo el personaje
+        shadow_rect = pygame.Rect(frame_w // 4, frame_h - frame_h // 6, frame_w // 2, frame_h // 8)
+        pygame.draw.ellipse(surf, (10, 10, 10, 100), shadow_rect)
+
+        # cuerpo (camiseta y pantalón)
+        body_x = frame_w // 2 - 18
+        body_y = frame_h // 2 - 6
+        pygame.draw.rect(surf, (200, 60, 60), (body_x, body_y, 36, 48))
+        pygame.draw.rect(surf, (30, 30, 80), (body_x, body_y + 36, 36, 20))
+
+        # cinturilla
+        pygame.draw.rect(surf, (20, 20, 20), (body_x, body_y + 34, 36, 4))
+
+        # cabeza con pequeño tilt
+        head_center = (frame_w // 2 + head_tilt, frame_h // 3)
+        pygame.draw.circle(surf, (245, 210, 170), head_center, frame_w // 8)
+
+        # ojos (parpadeo en frame 2)
+        if i == 2:
+            # ojos cerrados (líneas)
+            pygame.draw.line(surf, (20, 20, 20), (head_center[0] - 8, head_center[1] - 2), (head_center[0] - 2, head_center[1] - 2), 2)
+            pygame.draw.line(surf, (20, 20, 20), (head_center[0] + 2, head_center[1] - 2), (head_center[0] + 8, head_center[1] - 2), 2)
+        else:
+            pygame.draw.circle(surf, (20, 20, 20), (head_center[0] - 6, head_center[1] - 2), 3)
+            pygame.draw.circle(surf, (20, 20, 20), (head_center[0] + 6, head_center[1] - 2), 3)
+
+        # pelo simple
+        pygame.draw.rect(surf, (40, 30, 20), (head_center[0] - 12, head_center[1] - 14, 24, 8))
+
+        # brazos (moviéndose)
+        left_shoulder = (body_x, body_y + 8)
+        right_shoulder = (body_x + 36, body_y + 8)
+        pygame.draw.line(surf, (120, 80, 60), left_shoulder, (left_shoulder[0] - arm_offset[0], left_shoulder[1] + 18), 6)
+        pygame.draw.line(surf, (120, 80, 60), right_shoulder, (right_shoulder[0] - arm_offset[1], right_shoulder[1] + 18), 6)
+
+        # piernas (moviéndose)
+        hip_x = frame_w // 2
+        hip_y = body_y + 48
+        pygame.draw.line(surf, (20, 20, 20), (hip_x - 8, hip_y), (hip_x - 12 + leg_offset[0], frame_h - 12), 6)
+        pygame.draw.line(surf, (20, 20, 20), (hip_x + 8, hip_y), (hip_x + 12 - leg_offset[1], frame_h - 12), 6)
+
+        # manos y zapatos
+        pygame.draw.circle(surf, (120, 80, 60), (hip_x - 12 + leg_offset[0], frame_h - 12), 5)
+        pygame.draw.circle(surf, (120, 80, 60), (hip_x + 12 - leg_offset[1], frame_h - 12), 5)
+
+        # pequeño detalle en la camiseta
+        pygame.draw.rect(surf, (220, 220, 220), (body_x + 10, body_y + 10, 16, 6))
+
+        sheet.blit(surf, (fx, 0))
+
+    try:
+        pygame.image.save(sheet, path)
+    except Exception:
+        # si no se puede guardar, aún devolvemos la superficie en memoria (no usada aquí)
+        pass
+
+
+def load_frames_from_sheet(path, min_frames=4):
+    try:
+        sheet = pygame.image.load(path).convert_alpha()
+    except Exception:
+        return None
+
+    w, h = sheet.get_size()
+    if h > 0 and w % h == 0:
+        count = w // h
+    else:
+        count = max(min_frames, 4)
+
+    frame_w = w // count
+    frames = []
+    for i in range(count):
+        rect = pygame.Rect(i * frame_w, 0, frame_w, h)
+        frames.append(sheet.subsurface(rect).copy())
+    return frames
+
+
+def main():
+    pygame.init()
+    WIDTH, HEIGHT = 800, 600
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+
+    spritesheet_path = 'spritesheet.png'
+    create_spritesheet_if_missing(spritesheet_path, frame_w=96, frame_h=128, frames=4)
+
+    frames = load_frames_from_sheet(spritesheet_path, min_frames=4)
+    if not frames:
+        # fallback muy básico si algo falla
+        frames = []
+        for c in [(200, 80, 80), (80, 200, 80), (80, 120, 200), (220, 200, 80)]:
+            surf = pygame.Surface((96, 128), pygame.SRCALPHA)
+            surf.fill((0, 0, 0, 0))
+            pygame.draw.circle(surf, c, (48, 48), 30)
+            frames.append(surf)
+
+    frame_count = len(frames)
+    frame_duration_ms = 100
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                running = False
+
+        now = pygame.time.get_ticks()
+        current_frame = (now // frame_duration_ms) % frame_count
+
+        screen.fill((30, 30, 30))
+        img = frames[current_frame]
+        rect = img.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        screen.blit(img, rect)
+
+        pygame.display.set_caption(f"Sprite animado - frame {current_frame + 1}/{frame_count}")
+        pygame.display.flip()
+
+        clock.tick(60)
+
+    pygame.quit()
+
+
+if __name__ == '__main__':
+    main()
+
